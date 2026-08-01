@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Trivia Arena Dashboard</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="glass-bg"></div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="main-header">
+      <div class="logo-area">
+        <div class="pulse-dot"></div>
+        <h1>TRIVIA<span>ARENA</span></h1>
+      </div>
+      <div class="status-badge" id="systemStatus">
+        <span class="status-indicator"></span>
+        <span class="status-text">Connecting...</span>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <!-- Left Column: Leaderboard -->
+      <section class="grid-card leaderboard-card">
+        <div class="card-header">
+          <h2>Global Leaderboard</h2>
+          <div class="leaderboard-controls">
+            <label for="topCount">Show Top:</label>
+            <select id="topCount">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+        </div>
+        <div class="leaderboard-list-wrapper">
+          <div class="leaderboard-headers">
+            <span>Rank</span>
+            <span>Player ID</span>
+            <span>Score</span>
+          </div>
+          <div id="leaderboardList" class="leaderboard-list">
+            <!-- Populated via Javascript -->
+            <div class="loading-spinner">Loading Leaderboard...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Center Column: Game Simulation & Admin -->
+      <div class="center-column">
+        <!-- Section: Player Stats & Context Lookup -->
+        <section class="grid-card search-card">
+          <h2>Player Stats & Context</h2>
+          <div class="input-row">
+            <input type="text" id="searchPlayerId" placeholder="Enter Player ID (e.g. player-123)">
+            <button id="btnSearchPlayer" class="btn btn-primary">Search</button>
+          </div>
+          <div id="playerStatsResult" class="player-stats-panel hidden">
+            <!-- Populated via Javascript -->
+          </div>
+        </section>
+
+        <!-- Section: Game Simulator -->
+        <section class="grid-card simulator-card">
+          <h2>Game Operations Simulator</h2>
+          
+          <div class="tab-container">
+            <button class="tab-btn active" data-tab="tab-login">User Login</button>
+            <button class="tab-btn" data-tab="tab-round">Seed Round</button>
+            <button class="tab-btn" data-tab="tab-submit">Submit Answer</button>
+          </div>
+
+          <!-- Tab Content: User Login -->
+          <div id="tab-login" class="tab-content">
+            <div class="form-group">
+              <label for="loginUserId">User ID</label>
+              <input type="text" id="loginUserId" placeholder="e.g. user-alpha-99" value="user-alpha-99">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="loginIp">IP Address</label>
+                <input type="text" id="loginIp" placeholder="e.g. 192.168.1.45" value="192.168.1.45">
+              </div>
+              <div class="form-group">
+                <label for="loginDevice">Device Type</label>
+                <select id="loginDevice">
+                  <option value="desktop">Desktop</option>
+                  <option value="mobile" selected>Mobile</option>
+                  <option value="tablet">Tablet</option>
+                  <option value="console">Console</option>
+                </select>
+              </div>
+            </div>
+            <button id="btnLogin" class="btn btn-accent btn-full">Create Session (Atomic Log In)</button>
+            <div id="loginResult" class="result-box hidden"></div>
+          </div>
+
+          <!-- Tab Content: Seed Round -->
+          <div id="tab-round" class="tab-content hidden">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="roundGameId">Game ID</label>
+                <input type="text" id="roundGameId" placeholder="e.g. game-101" value="game-101">
+              </div>
+              <div class="form-group">
+                <label for="roundId">Round ID</label>
+                <input type="text" id="roundId" placeholder="e.g. round-1" value="round-1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="roundDuration">Duration (Seconds)</label>
+                <input type="number" id="roundDuration" placeholder="e.g. 60" value="60">
+              </div>
+              <div class="form-group">
+                <label for="roundPoints">Points Awarded</label>
+                <input type="number" id="roundPoints" placeholder="e.g. 50" value="50">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="roundCorrectAnswer">Correct Answer</label>
+              <input type="text" id="roundCorrectAnswer" placeholder="e.g. B" value="B">
+            </div>
+            <button id="btnSeedRound" class="btn btn-accent btn-full">Seed Quiz Round</button>
+            <div id="seedResult" class="result-box hidden"></div>
+          </div>
+
+          <!-- Tab Content: Submit Answer -->
+          <div id="tab-submit" class="tab-content hidden">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="submitGameId">Game ID</label>
+                <input type="text" id="submitGameId" placeholder="e.g. game-101" value="game-101">
+              </div>
+              <div class="form-group">
+                <label for="submitRoundId">Round ID</label>
+                <input type="text" id="submitRoundId" placeholder="e.g. round-1" value="round-1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="submitPlayerId">Player ID (or Session ID)</label>
+                <input type="text" id="submitPlayerId" placeholder="e.g. player-123" value="user-alpha-99">
+              </div>
+              <div class="form-group">
+                <label for="submitAnswer">Answer</label>
+                <input type="text" id="submitAnswer" placeholder="e.g. B" value="B">
+              </div>
+            </div>
+            <button id="btnSubmitAnswer" class="btn btn-accent btn-full">Submit Answer (Atomic Lua script)</button>
+            <div id="submitResult" class="result-box hidden"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Right Column: Admin Sessions & Events -->
+      <div class="right-column">
+        <!-- Section: Active Sessions (Admin) -->
+        <section class="grid-card admin-card">
+          <h2>Admin Session Monitor</h2>
+          <div class="input-row">
+            <input type="text" id="adminUserId" placeholder="User ID to monitor">
+            <button id="btnGetSessions" class="btn btn-primary">Find Sessions</button>
+          </div>
+          <div id="adminSessionsList" class="sessions-list">
+            <div class="empty-state">Enter a User ID and click search to view active Redis sessions.</div>
+          </div>
+        </section>
+
+        <!-- Section: Live Event Ticker -->
+        <section class="grid-card ticker-card">
+          <div class="card-header">
+            <h2>Live Event Ticker</h2>
+            <span class="pulse-dot active"></span>
+          </div>
+          <div id="eventTicker" class="ticker-log">
+            <!-- Event items dynamically appended here -->
+            <div class="ticker-item system">System active. Listening for arena updates via SSE...</div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
