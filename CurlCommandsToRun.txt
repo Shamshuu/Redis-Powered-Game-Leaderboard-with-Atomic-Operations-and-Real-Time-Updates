@@ -1,0 +1,89 @@
+docker compose up -d
+
+curl -X GET http://localhost:3000/health
+
+
+curl -X POST http://localhost:3000/api/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"test-user-123","ipAddress":"192.168.1.100","deviceType":"desktop"}'
+
+
+curl -X POST http://localhost:3000/api/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"test-user-123","ipAddress":"10.0.0.45","deviceType":"mobile"}'
+
+
+curl -X GET http://localhost:3000/api/admin/sessions/user/test-user-123
+
+
+curl -X DELETE http://localhost:3000/api/admin/sessions/<SESSION_ID>
+
+
+# Give player-alpha 50 points
+curl -X POST http://localhost:3000/api/leaderboard/scores \
+  -H "Content-Type: application/json" \
+  -d '{"playerId":"player-alpha","points":50}'
+
+# Give player-beta 100 points
+curl -X POST http://localhost:3000/api/leaderboard/scores \
+  -H "Content-Type: application/json" \
+  -d '{"playerId":"player-beta","points":100}'
+
+# Give player-gamma 75 points
+curl -X POST http://localhost:3000/api/leaderboard/scores \
+  -H "Content-Type: application/json" \
+  -d '{"playerId":"player-gamma","points":75}'
+
+
+curl -X GET http://localhost:3000/api/leaderboard/top/3
+
+
+curl -X GET http://localhost:3000/api/leaderboard/player/player-gamma
+
+
+# Compute a Unix timestamp 300 seconds in the future
+FUTURE_TIME=$(( $(date +%s) + 300 ))
+
+curl -X POST http://localhost:3000/api/game/rounds \
+  -H "Content-Type: application/json" \
+  -d '{"gameId":"game-101","roundId":"round-1","endTime":'$FUTURE_TIME',"correctAnswer":"A","points":30}'
+
+
+
+PAST_TIME=$(( $(date +%s) - 120 ))
+
+curl -X POST http://localhost:3000/api/game/rounds \
+  -H "Content-Type: application/json" \
+  -d '{"gameId":"game-101","roundId":"round-2","endTime":'$PAST_TIME',"correctAnswer":"A","points":30}'
+
+
+
+curl -X POST http://localhost:3000/api/game/submit \
+  -H "Content-Type: application/json" \
+  -d '{"gameId":"game-101","roundId":"round-1","playerId":"player-alpha","answer":"A"}'
+
+
+
+curl -X POST http://localhost:3000/api/game/submit \
+  -H "Content-Type: application/json" \
+  -d '{"gameId":"game-101","roundId":"round-1","playerId":"player-alpha","answer":"B"}'
+
+
+
+curl -X POST http://localhost:3000/api/game/submit \
+  -H "Content-Type: application/json" \
+  -d '{"gameId":"game-101","roundId":"round-2","playerId":"player-alpha","answer":"A"}'
+
+
+
+curl -N -H "Accept: text/event-stream" http://localhost:3000/api/events
+
+
+
+curl -X POST http://localhost:3000/api/leaderboard/scores \
+  -H "Content-Type: application/json" \
+  -d '{"playerId":"player-alpha","points":15}'
+
+
+docker compose down
+
