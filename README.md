@@ -20,7 +20,7 @@ The application is composed of three primary layers:
         │                   │             (/api/events)
         ▼                   ▼                   │
 ┌───────────────────────────────────────────────┼────────┐
-│                   API Server                  │
+│                   API Server                  │        |
 │  ┌─────────────────┐     ┌─────────────────┐  │        │
 │  │   Main Client   │     │Subscriber Client│  │        │
 │  └────────┬────────┘     └────────▲────────┘  │        │
@@ -31,7 +31,7 @@ The application is composed of three primary layers:
 │                      Redis Server                      │
 │  • Hashes: session:{id}, game_round:{id}               │
 │  • Sets: user_sessions:{uid}, submissions:{id}         │
-│  • Sorted Sets: leaderboard:global                    │
+│  • Sorted Sets: leaderboard:global                     │
 │  • Channels: game-events                               │
 └────────────────────────────────────────────────────────┘
 ```
