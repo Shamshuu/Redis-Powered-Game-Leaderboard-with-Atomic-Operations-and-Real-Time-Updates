@@ -1,0 +1,86 @@
+1. Project Overview & Purpose
+
+What It Does
+This project is a high-performance backend and live administrator dashboard for a real-time competitive trivia game platform. It tracks user sessions, processes answers, computes leaderboard standings in real time, and pushes instantaneous game updates directly to connected browser clients.
+
+The Purpose
+In high-throughput, real-time gaming environments, standard relational databases (like PostgreSQL or MySQL) struggle. Disk I/O, locking mechanisms, and complex relational operations introduce latency and become choke points under heavy concurrent write operations (e.g., thousands of players submitting answers simultaneously).
+
+The purpose of this project is to showcase how to build low-latency, concurrency-safe, and highly-scalable systems by leveraging Redis as a primary in-memory database alongside atomic operations (Lua scripts) and lightweight real-time communication (Server-Sent Events).
+
+
+2. Technical Stack: How Each Technology Helps
+
+Redis (Advanced In-Memory Data Store)
+Instead of serving as a simple cache, Redis functions as the system's memory-backed database, using tailored structures for optimal access:
+
+Hashes (HSET, HGETALL): 
+Used to store user sessions (session:{id}) and quiz round configurations. Hashes allow us to read or update specific fields (e.g., updating only lastActive) without having to deserialize, update, and rewrite a massive JSON string.
+
+Sorted Sets (ZADD, ZINCRBY, ZREVRANK): 
+Used for the global leaderboard (leaderboard:global). It keeps all players sorted by score automatically. Finding a player's rank or range of scores runs in O(log N) time (under a microsecond), meaning the leaderboard remains fast even with millions of players.
+
+Sets (SADD, SISMEMBER):
+Used to track round submissions (submissions:{roundId}) and index active session IDs. Sets guarantee O(1) time complexity for checking if a player has already submitted an answer.
+Pub/Sub (PUBLISH, SUBSCRIBE): Connects the backend API instances. When a player's score changes, an event is published to game-events. Any listening instance immediately picks up the event.
+Lua Scripting (EVAL)
+In concurrent systems, "check-then-act" operations (e.g., check if a player submitted, then add score) suffer from race conditions.
+
+How it helps: 
+Redis executes Lua scripts in a single, block-less transaction. No other client command can execute while a Lua script is running. This guarantees complete isolation and consistency without needing complex, slow database locks.
+
+Server-Sent Events (SSE)
+How it helps: SSE is a native web protocol that pushes data from a server to clients over a single, long-lived HTTP connection. It is unidirectional (server-to-client), making it simpler, cleaner, and lighter than WebSockets for broadcasting leaderboard tickers.
+
+Node.js & Express
+How it helps: Node.js operates on a single-threaded, non-blocking asynchronous event loop. This makes it exceptionally efficient at handling thousands of simultaneous, long-lived idle connections (which SSE requires) with a minimal memory footprint.
+
+
+3. How Each Functionality is Implemented
+
+A. Session Store & Single-Login Enforcement
+Implemented in sessions.js and the invalidateAndCreateSession Lua script:
+
+When a user logs in, a POST request is sent to /api/sessions.
+The backend calls the Lua script.
+The Lua script fetches all active sessions for the user from the Set index user_sessions:{userId}.
+It deletes each corresponding session:{sessionId} Hash key from Redis and clears the Set index.
+It creates a new session:{newSessionId} Hash with a 30-minute expiration (TTL of 1800s) and adds the new ID to user_sessions:{userId}.
+Why this is important: This sequence ensures that logging in automatically invalidates any other active device sessions for that user atomically, preventing session bloat and ensuring account security.
+
+B. Global Leaderboard & Context Search
+Implemented in leaderboard.js:
+
+Score Submission: Increment a player's score using ZINCRBY leaderboard:global <points> <playerId>.
+Top Retrieval: Retrieve a sorted subset using ZREVRANGE leaderboard:global 0 <count-1> WITHSCORES.
+Player Context Lookup:
+Query the player's score (ZSCORE) and rank (ZREVRANK, which is 0-indexed, so we add 1).
+Compute their exact percentile rank: (1 - (rank - 1) / totalPlayers) * 100.
+Fetch nearby opponents above (ZREVRANGE index rank-3 to rank-2) and below (ZREVRANGE index rank to rank+1).
+Why this is important: Instead of showing just a top list, players get a context card showing their rank, their standing compared to the pool (percentile), and the competitors right above and below them, fostering active engagement.
+
+C. Concurrency-Safe Quiz Submissions
+Implemented in game.js and the submitAnswer Lua script:
+
+The round setup (stored as game_round:{gameId}:{roundId}) holds the correct answer, points, and endTime.
+When a player submits an answer, Express passes the request parameters alongside the server's current timestamp (currentTime) to the Lua script.
+The script executes the following checks in order:
+Expired Check: If currentTime >= round.endTime, immediately return ROUND_EXPIRED (403 status).
+Duplicate Check: Check SISMEMBER submissions:{roundId} playerId. If already present, immediately return DUPLICATE_SUBMISSION (400 status).
+Record & Score: If valid, add the player to the submissions Set (SADD). Compare their answer with correctAnswer. If it matches, increment the player's score in the leaderboards (ZINCRBY).
+Why this is important: Running these operations in one script guarantees that no player can submit twice, cheat by submitting after a round has ended, or receive double points due to concurrent connection race conditions.
+
+D. Real-Time SSE Broadcasting Stream
+Implemented in index.js:
+
+The Express server establishes a single dedicated Redis client (subRedis) in Subscriber mode listening on the game-events channel.
+Whenever a score is updated (via scores endpoint or game submissions), the main client publishes the update to the channel.
+The subscription listener captures the message, formats it into an SSE compatible chunk (event: leaderboard_updated\ndata: <json>\n\n), and broadcasts it to all active connection sockets.
+Why this is important: Instead of having the frontend poll the API every second (which would flood the server with HTTP requests), the server holds a single open channel and feeds updates instantly as they occur.
+
+E. Session Management (Admin Console)
+Implemented in admin.js:
+
+Session Lookup: The admin queries active sessions for a user. The backend fetches active IDs via SMEMBERS and issues a pipelined HGETALL lookup. Pipelining groups these requests, executing them in 1 round-trip to Redis instead of N.
+Lazy Cleanup: If a session key has expired in Redis but its ID still exists in the index set, the query filters it out and cleans it up asynchronously via SREM.
+Manual Invalidation: The admin can click "Delete" to destroy a session. The backend retrieves the session metadata and uses a Redis transaction (multi/exec) to atomically delete the session hash and remove its ID from the index set.
